@@ -1,0 +1,104 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/memo-server
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'development' }}
+    steps:
+      - name: Checkout memo-server
+        uses: actions/checkout@v4
+
+      - name: Prepare metadata
+        run: |
+          echo "IMAGE_TAG=$(date -u +%Y%m%d%H%M%S)" >> $GITHUB_ENV
+          if [ "$GITHUB_REF_NAME" = "main" ]; then
+            echo "DEPLOY_ENV=prod" >> $GITHUB_ENV
+          else
+            echo "DEPLOY_ENV=dev" >> $GITHUB_ENV
+          fi
+          echo "DEPLOY_BRANCH=$GITHUB_REF_NAME" >> $GITHUB_ENV
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+            ${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+
+      - name: Checkout memo-deploy repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.DEPLOY_REPO || format('{0}/{1}', github.repository_owner, 'memo-deploy') }}
+          token: ${{ secrets.DEPLOY_REPO_TOKEN }}
+          ref: ${{ env.DEPLOY_BRANCH }}
+          path: memo-deploy
+
+      - name: Install yaml tooling
+        run: pip install pyyaml
+
+      - name: Update kustomize image tag
+        run: |
+          python <<'PY'
+import os
+import pathlib
+import yaml
+
+target = pathlib.Path("memo-deploy") / "k8s" / "overlays" / os.environ["DEPLOY_ENV"] / "kustomization.yaml"
+if not target.exists():
+    raise SystemExit(f"Missing overlay file: {target}")
+
+data = yaml.safe_load(target.read_text()) or {}
+image_name = os.environ["IMAGE_NAME"]
+image_tag = os.environ["IMAGE_TAG"]
+images = data.get("images") or []
+updated = False
+for img in images:
+    if img.get("name") == "memo-server" or img.get("newName", "").endswith("/memo-server"):
+        img["newName"] = image_name
+        img["newTag"] = image_tag
+        updated = True
+        break
+if not updated:
+    images.append({"name": "memo-server", "newName": image_name, "newTag": image_tag})
+data["images"] = images
+
+target.write_text(yaml.safe_dump(data, sort_keys=False))
+PY
+
+      - name: Commit and push to memo-deploy
+        run: |
+          cd memo-deploy
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git status --short
+          if git status --porcelain | grep .; then
+            git add k8s/overlays/${DEPLOY_ENV}/kustomization.yaml
+            git commit -m "chore: update memo-server image ${IMAGE_TAG}"
+            git push origin HEAD:${DEPLOY_BRANCH}
+          else
+            echo "No changes to commit"
+
+    # 참고: main -> production 환경 보호를 설정하면 수동 승인 후 job 실행
