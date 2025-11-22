@@ -33,7 +33,7 @@ docker build -t memo-server:local .
 ## CI/CD 개요
 `main`, `dev` 브랜치에 push 시 GitHub Actions가 동작합니다.
 1) 현재 시각을 태그로 이미지 빌드 후 GHCR에 push
-2) `memo-deploy` 레포의 대응 브랜치(main/dev)에서 kustomize overlay 이미지 태그 업데이트 후 커밋/푸시
+2) `memo-deploy` 레포의 대응 브랜치(main/dev)에서 Helm values의 이미지 태그 업데이트 후 커밋/푸시
 3) `dev`는 자동 실행, `main`은 GitHub 환경 보호(Production) 승인 후 실행하도록 설계
 
 필요한 시크릿/변수는 `.github/workflows/build-and-deploy.yml`을 참고하세요.
@@ -43,3 +43,7 @@ docker build -t memo-server:local .
 - `DEPLOY_REPO_TOKEN` (secret): `memo-deploy` 레포에 push 가능한 PAT
 - `DEPLOY_REPO` (org/repo, repo var): `memo-deploy` 레포 경로를 바꾸고 싶을 때
 - GitHub Environments: `development`(dev), `production`(main) – production에 승인자 설정
+
+### memo-deploy Helm 값 파일 위치
+- dev: `helm/memo-server/values.yaml`
+- prod: `helm/memo-server/values-prod.yaml`

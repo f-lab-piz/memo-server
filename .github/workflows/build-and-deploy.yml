@@ -59,33 +59,25 @@ jobs:
       - name: Install yaml tooling
         run: pip install pyyaml
 
-      - name: Update kustomize image tag
+      - name: Update Helm values image tag
         run: |
           python <<'PY'
 import os
 import pathlib
 import yaml
 
-target = pathlib.Path("memo-deploy") / "k8s" / "overlays" / os.environ["DEPLOY_ENV"] / "kustomization.yaml"
+env = os.environ["DEPLOY_ENV"]
+target = pathlib.Path("memo-deploy") / "helm" / "memo-server" / ("values-prod.yaml" if env == "prod" else "values.yaml")
 if not target.exists():
-    raise SystemExit(f"Missing overlay file: {target}")
+    raise SystemExit(f"Missing values file: {target}")
 
 data = yaml.safe_load(target.read_text()) or {}
-image_name = os.environ["IMAGE_NAME"]
-image_tag = os.environ["IMAGE_TAG"]
-images = data.get("images") or []
-updated = False
-for img in images:
-    if img.get("name") == "memo-server" or img.get("newName", "").endswith("/memo-server"):
-        img["newName"] = image_name
-        img["newTag"] = image_tag
-        updated = True
-        break
-if not updated:
-    images.append({"name": "memo-server", "newName": image_name, "newTag": image_tag})
-data["images"] = images
+data.setdefault("image", {})
+data["image"]["repository"] = os.environ["IMAGE_NAME"]
+data["image"]["tag"] = os.environ["IMAGE_TAG"]
 
 target.write_text(yaml.safe_dump(data, sort_keys=False))
+print(f"Updated {target} -> image: {data['image']}")
 PY
 
       - name: Commit and push to memo-deploy
@@ -95,7 +87,11 @@ PY
           git config user.email "actions@github.com"
           git status --short
           if git status --porcelain | grep .; then
-            git add k8s/overlays/${DEPLOY_ENV}/kustomization.yaml
+            if [ "$DEPLOY_ENV" = "prod" ]; then
+              git add helm/memo-server/values-prod.yaml
+            else
+              git add helm/memo-server/values.yaml
+            fi
             git commit -m "chore: update memo-server image ${IMAGE_TAG}"
             git push origin HEAD:${DEPLOY_BRANCH}
           else
