@@ -62,23 +62,23 @@ jobs:
       - name: Update Helm values image tag
         run: |
           python <<'PY'
-import os
-import pathlib
-import yaml
+          import os
+          import pathlib
+          import yaml
 
-env = os.environ["DEPLOY_ENV"]
-target = pathlib.Path("memo-deploy") / "helm" / "memo-server" / ("values-prod.yaml" if env == "prod" else "values.yaml")
-if not target.exists():
-    raise SystemExit(f"Missing values file: {target}")
+          env = os.environ["DEPLOY_ENV"]
+          target = pathlib.Path("memo-deploy") / "helm" / "memo-server" / ("values-prod.yaml" if env == "prod" else "values.yaml")
+          if not target.exists():
+              raise SystemExit(f"Missing values file: {target}")
 
-data = yaml.safe_load(target.read_text()) or {}
-data.setdefault("image", {})
-data["image"]["repository"] = os.environ["IMAGE_NAME"]
-data["image"]["tag"] = os.environ["IMAGE_TAG"]
+          data = yaml.safe_load(target.read_text()) or {}
+          data.setdefault("image", {})
+          data["image"]["repository"] = os.environ["IMAGE_NAME"]
+          data["image"]["tag"] = os.environ["IMAGE_TAG"]
 
-target.write_text(yaml.safe_dump(data, sort_keys=False))
-print(f"Updated {target} -> image: {data['image']}")
-PY
+          target.write_text(yaml.safe_dump(data, sort_keys=False))
+          print(f"Updated {target} -> image: {data['image']}")
+          PY
 
       - name: Commit and push to memo-deploy
         run: |
