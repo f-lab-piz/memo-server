@@ -39,9 +39,13 @@ docker build -t memo-server:local .
 필요한 시크릿/변수는 `.github/workflows/build-and-deploy.yml`을 참고하세요.
 
 ### GitHub Actions 시크릿/변수 예시
-- `GHCR_TOKEN` (secret): GHCR 패키지 write 권한 PAT
-- `DEPLOY_REPO_TOKEN` (secret): `memo-deploy` 레포에 push 가능한 PAT
-- `DEPLOY_REPO` (org/repo, repo var): `memo-deploy` 레포 경로를 바꾸고 싶을 때
+- `GHCR_TOKEN` (secret): GHCR 푸시용 토큰  
+  - fine-grained: `write:packages`  
+  - classic: `packages:write`
+- `DEPLOY_REPO_TOKEN` (secret): `memo-deploy` 레포에 push 가능한 토큰  
+  - fine-grained: `Contents: Read/Write`  
+  - classic: `repo`
+- `DEPLOY_REPO` (repo variable): `org/repo` 형식으로 `memo-deploy` 위치를 재정의할 때 사용 (없으면 `${{ github.repository_owner }}/memo-deploy`)
 - GitHub Environments: `development`(dev), `production`(main) – production에 승인자 설정
 
 ### memo-deploy Helm 값 파일 위치
