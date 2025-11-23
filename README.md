@@ -46,7 +46,10 @@ docker build -t memo-server:local .
   - fine-grained: `Contents: Read/Write`  
   - classic: `repo`
 - `DEPLOY_REPO` (repo variable): `org/repo` 형식으로 `memo-deploy` 위치를 재정의할 때 사용 (없으면 `${{ github.repository_owner }}/memo-deploy`)
-- GitHub Environments: `development`(dev), `production`(main) – production에 승인자 설정
+- GitHub Environments 설정 방법  
+  1) GitHub > Settings > Environments에서 `development`, `production` 두 개 생성  
+  2) `development`: 필요한 시크릿/변수를 연결(`GHCR_TOKEN`, `DEPLOY_REPO_TOKEN`, `DEPLOY_REPO` 등). 승인/보호 규칙 없이 둡니다.  
+  3) `production`: 동일한 시크릿/변수를 연결하고, Required reviewers에 운영 승인자 추가(배포 전 수동 승인 필요). 필요하면 branch protection 규칙도 연동합니다.
 
 ### memo-deploy Helm 값 파일 위치
 - dev: `helm/memo-server/values.yaml`
