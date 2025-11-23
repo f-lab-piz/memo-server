@@ -96,5 +96,6 @@ PY
             git push origin HEAD:${DEPLOY_BRANCH}
           else
             echo "No changes to commit"
+          fi
 
     # 참고: main -> production 환경 보호를 설정하면 수동 승인 후 job 실행
